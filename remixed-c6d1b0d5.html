@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal — Portfolio Sentiment Tracker</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #00ff88;
+    --accent2: #ff3366;
+    --accent3: #ffcc00;
+    --text: #e8e8f0;
+    --muted: #555570;
+    --card: #13131f;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .logo {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .api-setup {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .api-setup input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 10px 14px;
+    width: 260px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .api-setup input:focus { border-color: var(--accent); }
+  .api-setup input::placeholder { color: var(--muted); }
+
+  .btn {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 10px 20px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-demo {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .btn-demo:hover { border-color: var(--muted); color: var(--text); opacity: 1; }
+
+  /* Ticker grid */
+  .tickers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    margin-bottom: 40px;
+  }
+
+  .ticker-chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 600;
+    font-size: 14px;
+    user-select: none;
+  }
+
+  .ticker-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .ticker-chip.active {
+    background: rgba(0,255,136,0.08);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .ticker-chip.custom {
+    position: relative;
+    padding-right: 28px;
+  }
+
+  .ticker-chip .remove-btn {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-size: 14px;
+    line-height: 1;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .ticker-chip .remove-btn:hover { color: var(--accent2); }
+
+  .add-ticker-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+  }
+
+  .add-ticker-input {
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 10px 14px;
+    width: 160px;
+    outline: none;
+    transition: border-color 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .add-ticker-input:focus { border-color: var(--accent); border-style: solid; }
+  .add-ticker-input::placeholder { color: var(--muted); font-size: 11px; letter-spacing: 1px; text-transform: none; font-weight: 400; }
+
+  .btn-add {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 12px;
+    padding: 10px 16px;
+  }
+
+  .btn-add:hover { background: rgba(0,255,136,0.08); opacity: 1; }
+
+  .add-hint {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* Section label */
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 16px;
+  }
+
+  /* Summary bar */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .summary-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+
+  .summary-card .label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 8px;
+  }
+
+  .summary-card .value {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+
+  .pos { color: var(--accent); }
+  .neg { color: var(--accent2); }
+  .neu { color: var(--accent3); }
+
+  /* Results */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+  }
+
+  .ticker-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .ticker-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .ticker-name {
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+  }
+
+  .sentiment-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  .badge-pos { background: rgba(0,255,136,0.12); color: var(--accent); border: 1px solid rgba(0,255,136,0.3); }
+  .badge-neg { background: rgba(255,51,102,0.12); color: var(--accent2); border: 1px solid rgba(255,51,102,0.3); }
+  .badge-neu { background: rgba(255,204,0,0.1); color: var(--accent3); border: 1px solid rgba(255,204,0,0.25); }
+
+  .score-bar-wrap {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .score-bar-bg {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    position: relative;
+    overflow: visible;
+  }
+
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+    position: absolute;
+    top: 0;
+  }
+
+  .score-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .news-list { padding: 4px 0; }
+
+  .news-item {
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(30,30,46,0.5);
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .news-item:last-child { border-bottom: none; }
+
+  .news-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+
+  .news-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #b0b0c8;
+  }
+
+  .news-text a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .news-text a:hover { color: var(--text); }
+
+  .news-score {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    margin-top: 3px;
+    opacity: 0.6;
+  }
+
+  /* Loading */
+  .loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    grid-column: 1 / -1;
+  }
+
+  .empty-state p { font-size: 14px; line-height: 1.7; }
+
+  .api-note {
+    background: rgba(0,255,136,0.04);
+    border: 1px solid rgba(0,255,136,0.15);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 12px;
+    font-family: 'Space Mono', monospace;
+    line-height: 1.6;
+  }
+
+  .api-note a { color: var(--accent); text-decoration: none; }
+  .api-note a:hover { text-decoration: underline; }
+
+  .timestamp {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div>
+      <div class="logo">⬡ Signal</div>
+      <h1>Portfolio <span>Sentiment</span><br>Tracker</h1>
+    </div>
+    <div>
+      <div class="api-setup">
+        <input type="text" id="apiKey" placeholder="Paste your NewsAPI key here..." />
+        <button class="btn" onclick="fetchAll()">Run Analysis</button>
+        <button class="btn btn-demo" onclick="loadDemo()">Demo Mode</button>
+      </div>
+      <div class="api-note">
+        Free key at <a href="https://newsapi.org" target="_blank">newsapi.org</a> — 100 req/day, no credit card. Takes 30 seconds to get.
+      </div>
+    </div>
+  </header>
+
+  <div class="section-label">Select Tickers</div>
+  <div class="tickers-grid" id="tickerGrid"></div>
+
+  <div class="add-ticker-row">
+    <input class="add-ticker-input" id="customTickerInput" type="text" maxlength="8" placeholder="Add ticker e.g. NVDA" />
+    <input class="add-ticker-input" id="customNameInput" type="text" maxlength="30" placeholder="Company name (optional)" style="text-transform:none;letter-spacing:0;font-weight:400;font-size:12px" />
+    <button class="btn btn-add" onclick="addCustomTicker()">+ Add</button>
+    <span class="add-hint">Press Enter or click Add</span>
+  </div>
+
+  <div id="summaryBar" class="summary-bar" style="display:none">
+    <div class="summary-card">
+      <div class="label">Bullish Signals</div>
+      <div class="value pos" id="sumPos">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Bearish Signals</div>
+      <div class="value neg" id="sumNeg">—</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Articles Analyzed</div>
+      <div class="value neu" id="sumTotal">—</div>
+    </div>
+  </div>
+
+  <div class="section-label" id="resultsLabel" style="display:none">Sentiment by Ticker</div>
+  <div class="results-grid" id="results"></div>
+
+  <div class="timestamp" id="ts"></div>
+
+</div>
+
+<script>
+const TICKERS = ['GOOGL','TSM','RTX','VST','BAH','TMO','LLY','NEM','MTDR'];
+const COMPANY_NAMES = {
+  GOOGL: 'Alphabet', TSM: 'TSMC', RTX: 'RTX Corp',
+  VST: 'Vistra', BAH: 'Booz Allen', TMO: 'Thermo Fisher',
+  LLY: 'Eli Lilly', NEM: 'Newmont', MTDR: 'Matador Resources'
+};
+
+// Custom tickers added by user
+let customTickers = [];
+
+let selected = new Set(TICKERS);
+
+// --- Add custom ticker ---
+function addCustomTicker() {
+  const input = document.getElementById('customTickerInput');
+  const nameInput = document.getElementById('customNameInput');
+  const ticker = input.value.trim().toUpperCase().replace(/[^A-Z0-9.]/g, '');
+  if (!ticker) return;
+  const allTickers = [...TICKERS, ...customTickers];
+  if (allTickers.includes(ticker)) {
+    input.style.borderColor = 'var(--accent2)';
+    setTimeout(() => input.style.borderColor = '', 800);
+    input.value = '';
+    return;
+  }
+  const name = nameInput.value.trim() || ticker;
+  customTickers.push(ticker);
+  COMPANY_NAMES[ticker] = name;
+  selected.add(ticker);
+  input.value = '';
+  nameInput.value = '';
+  renderChips();
+}
+
+// Enter key support handled below at script end
+
+function removeCustomTicker(ticker) {
+  customTickers = customTickers.filter(t => t !== ticker);
+  selected.delete(ticker);
+  delete COMPANY_NAMES[ticker];
+  renderChips();
+}
+
+// --- Render ticker chips ---
+function renderChips() {
+  const grid = document.getElementById('tickerGrid');
+  grid.innerHTML = '';
+  const allTickers = [...TICKERS, ...customTickers];
+  allTickers.forEach(t => {
+    const isCustom = customTickers.includes(t);
+    const chip = document.createElement('div');
+    chip.className = 'ticker-chip' + (selected.has(t) ? ' active' : '') + (isCustom ? ' custom' : '');
+    chip.innerHTML = t + (isCustom ? `<span class="remove-btn" title="Remove">×</span>` : '');
+
+    // Toggle selection on chip body click
+    chip.addEventListener('click', (e) => {
+      if (e.target.classList.contains('remove-btn')) return;
+      if (selected.has(t)) selected.delete(t); else selected.add(t);
+      chip.classList.toggle('active');
+    });
+
+    // Remove button
+    if (isCustom) {
+      chip.querySelector('.remove-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeCustomTicker(t);
+      });
+    }
+
+    grid.appendChild(chip);
+  });
+}
+
+// --- Sentiment scoring (VADER-lite) ---
+const POS_WORDS = ['surge','soars','beats','strong','record','growth','profit','upgrade','bullish','rise','climbs','gains','rally','outperform','positive','upbeat','exceeds','innovation','leads','wins'];
+const NEG_WORDS = ['fall','drops','miss','weak','loss','downgrade','bearish','decline','plunges','cuts','layoffs','warning','concern','risk','disappoints','slump','crash','selloff','deficit','worries','probe','investigation','fine','lawsuit'];
+
+function scoreSentiment(text) {
+  const lower = text.toLowerCase();
+  let score = 0;
+  POS_WORDS.forEach(w => { if (lower.includes(w)) score += 1; });
+  NEG_WORDS.forEach(w => { if (lower.includes(w)) score -= 1; });
+  return Math.max(-3, Math.min(3, score));
+}
+
+function scoreLabel(avg) {
+  if (avg >= 0.5) return { label: 'BULLISH', cls: 'badge-pos', colorClass: 'pos' };
+  if (avg <= -0.5) return { label: 'BEARISH', cls: 'badge-neg', colorClass: 'neg' };
+  return { label: 'NEUTRAL', cls: 'badge-neu', colorClass: 'neu' };
+}
+
+// --- Fetch from NewsAPI ---
+async function fetchTickerNews(ticker, apiKey) {
+  const companyName = COMPANY_NAMES[ticker] || ticker;
+  const query = companyName !== ticker ? `${ticker} ${companyName} stock` : `${ticker} stock`;
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${apiKey}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.status !== 'ok') throw new Error(data.message || 'API error');
+  return (data.articles || []).map(a => ({
+    title: a.title || '',
+    url: a.url,
+    source: a.source?.name || '',
+    score: scoreSentiment((a.title || '') + ' ' + (a.description || ''))
+  }));
+}
+
+// --- Render one ticker block ---
+function renderBlock(ticker, articles) {
+  const scores = articles.map(a => a.score);
+  const avg = scores.length ? scores.reduce((a,b)=>a+b,0)/scores.length : 0;
+  const info = scoreLabel(avg);
+
+  // Bar: map avg from -3..3 to 0..100%
+  const pct = Math.round(((avg + 3) / 6) * 100);
+  const barColor = avg >= 0.5 ? 'var(--accent)' : avg <= -0.5 ? 'var(--accent2)' : 'var(--accent3)';
+
+  const block = document.createElement('div');
+  block.className = 'ticker-block';
+  block.innerHTML = `
+    <div class="ticker-header">
+      <div>
+        <div class="ticker-name">${ticker}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${COMPANY_NAMES[ticker]}</div>
+      </div>
+      <span class="sentiment-badge ${info.cls}">${info.label}</span>
+    </div>
+    <div class="score-bar-wrap">
+      <div class="score-bar-bg">
+        <div class="score-bar-fill" style="width:${pct}%;background:${barColor}"></div>
+      </div>
+      <div class="score-label">
+        <span>Bearish</span>
+        <span class="${info.colorClass}">Score: ${avg.toFixed(2)}</span>
+        <span>Bullish</span>
+      </div>
+    </div>
+    <div class="news-list">
+      ${articles.length === 0 ? '<div style="padding:16px 20px;font-size:12px;color:var(--muted)">No recent articles found.</div>' :
+        articles.map(a => {
+          const s = a.score;
+          const dotColor = s > 0 ? 'var(--accent)' : s < 0 ? 'var(--accent2)' : 'var(--accent3)';
+          return `<div class="news-item">
+            <div class="news-dot" style="background:${dotColor}"></div>
+            <div>
+              <div class="news-text"><a href="${a.url}" target="_blank">${a.title}</a></div>
+              <div class="news-score">${a.source} · signal: ${s > 0 ? '+' : ''}${s}</div>
+            </div>
+          </div>`;
+        }).join('')}
+    </div>
+  `;
+  return block;
+}
+
+// --- Main fetch ---
+async function fetchAll() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { alert('Please enter your NewsAPI key.'); return; }
+  if (selected.size === 0) { alert('Select at least one ticker.'); return; }
+
+  const results = document.getElementById('results');
+  const btn = document.querySelector('.btn');
+  btn.disabled = true;
+  btn.textContent = 'Fetching...';
+
+  results.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Pulling headlines & scoring sentiment…</p></div>';
+  document.getElementById('summaryBar').style.display = 'none';
+  document.getElementById('resultsLabel').style.display = 'none';
+
+  const tickers = [...selected];
+  let posCount = 0, negCount = 0, totalArticles = 0;
+  const blocks = [];
+
+  for (const ticker of tickers) {
+    try {
+      const articles = await fetchTickerNews(ticker, apiKey);
+      totalArticles += articles.length;
+      const avg = articles.length ? articles.reduce((a,b)=>a+b.score,0)/articles.length : 0;
+      if (avg >= 0.5) posCount++;
+      else if (avg <= -0.5) negCount++;
+      blocks.push({ ticker, articles });
+    } catch(e) {
+      blocks.push({ ticker, articles: [], error: e.message });
+    }
+  }
+
+  results.innerHTML = '';
+  blocks.forEach(({ticker, articles}) => {
+    results.appendChild(renderBlock(ticker, articles));
+  });
+
+  document.getElementById('sumPos').textContent = posCount;
+  document.getElementById('sumNeg').textContent = negCount;
+  document.getElementById('sumTotal').textContent = totalArticles;
+  document.getElementById('summaryBar').style.display = 'grid';
+  document.getElementById('resultsLabel').style.display = 'block';
+  document.getElementById('ts').textContent = `Last updated: ${new Date().toLocaleString()}`;
+
+  btn.disabled = false;
+  btn.textContent = 'Run Analysis';
+}
+
+// --- Demo mode with fake data ---
+function loadDemo() {
+  const demoData = {
+    GOOGL: [{title:'Alphabet beats Q4 revenue estimates on cloud strength',url:'#',source:'Reuters',score:2},{title:'Google faces EU antitrust scrutiny over AI products',url:'#',source:'FT',score:-1},{title:'YouTube ad revenue surges 15% year-over-year',url:'#',source:'Bloomberg',score:2}],
+    TSM: [{title:'TSMC posts record monthly revenue driven by AI chip demand',url:'#',source:'Reuters',score:3},{title:'Taiwan geopolitical risk weighs on chipmakers',url:'#',source:'WSJ',score:-2},{title:'TSMC expands Arizona fab capacity',url:'#',source:'Nikkei',score:1}],
+    RTX: [{title:'RTX wins $1.2B Pentagon missile defense contract',url:'#',source:'DefenseNews',score:2},{title:'Engine recall weighs on RTX earnings outlook',url:'#',source:'Bloomberg',score:-2},{title:'RTX Pratt & Whitney receives strong orders backlog',url:'#',source:'Reuters',score:1}],
+    VST: [{title:'Vistra surges on data center power demand outlook',url:'#',source:'Bloomberg',score:3},{title:'VST leads utility sector with record forward bookings',url:'#',source:'Reuters',score:2}],
+    LLY: [{title:'Eli Lilly GLP-1 drug sales exceed forecasts by wide margin',url:'#',source:'Reuters',score:3},{title:'LLY expands manufacturing to meet Ozempic rival demand',url:'#',source:'Bloomberg',score:2},{title:'Pricing probe concerns weigh on pharma sector',url:'#',source:'WSJ',score:-1}],
+    NEM: [{title:'Newmont raises gold output guidance as prices hold firm',url:'#',source:'Reuters',score:2},{title:'NEM cost overruns at Nevada mine disappoint investors',url:'#',source:'Bloomberg',score:-2}],
+    BAH: [{title:'Booz Allen secures $600M government IT modernization deal',url:'#',source:'FedScoop',score:2},{title:'Federal budget uncertainty clouds defense contractor outlook',url:'#',source:'Reuters',score:-1}],
+    TMO: [{title:'Thermo Fisher beats earnings on pharma services demand',url:'#',source:'Reuters',score:2},{title:'TMO raises annual guidance citing strong biotech pipeline',url:'#',source:'Bloomberg',score:2}],
+    MTDR: [{title:'Matador Resources grows Permian output 12% quarter-over-quarter',url:'#',source:'OilPrice',score:2},{title:'Natural gas prices slump pressures smaller E&P names',url:'#',source:'Reuters',score:-1}]
+  };
+
+  const results = document.getElementById('results');
+  results.innerHTML = '';
+
+  let posCount = 0, negCount = 0, totalArticles = 0;
+
+  [...selected].forEach(ticker => {
+    const articles = demoData[ticker] || [];
+    totalArticles += articles.length;
+    const avg = articles.length ? articles.reduce((a,b)=>a+b.score,0)/articles.length : 0;
+    if (avg >= 0.5) posCount++;
+    else if (avg <= -0.5) negCount++;
+    results.appendChild(renderBlock(ticker, articles));
+  });
+
+  document.getElementById('sumPos').textContent = posCount;
+  document.getElementById('sumNeg').textContent = negCount;
+  document.getElementById('sumTotal').textContent = totalArticles;
+  document.getElementById('summaryBar').style.display = 'grid';
+  document.getElementById('resultsLabel').style.display = 'block';
+  document.getElementById('ts').textContent = `Demo mode · ${new Date().toLocaleString()}`;
+}
+
+renderChips();
+
+// Wire up Enter key on custom ticker inputs
+(function() {
+  const t = document.getElementById('customTickerInput');
+  const n = document.getElementById('customNameInput');
+  if (t) t.addEventListener('keydown', e => { if (e.key === 'Enter') addCustomTicker(); });
+  if (n) n.addEventListener('keydown', e => { if (e.key === 'Enter') addCustomTicker(); });
+})();
+</script>
+</body>
+</html>
